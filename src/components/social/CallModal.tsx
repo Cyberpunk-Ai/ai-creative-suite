@@ -118,6 +118,20 @@ export function CallModal({
     .toString()
     .padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
 
+  const statusLabel =
+    callStatus === "ringing"
+      ? role === "caller"
+        ? "Ringing…"
+        : "Incoming"
+      : connected
+        ? "Connected"
+        : session.connection === "failed"
+          ? "Connection lost"
+          : "Connecting…";
+
+  const hasRemoteVideo = (session.remoteStream?.getVideoTracks().length ?? 0) > 0;
+
+
   function triggerReaction(emoji: string) {
     const id = `react_${Date.now()}_${Math.random()}`;
     const left = Math.floor(Math.random() * 60) + 20;
