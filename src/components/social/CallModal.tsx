@@ -143,24 +143,28 @@ export function CallModal({
 
   async function handleToggleScreenShare() {
     if (isScreenSharing) {
+      await session.replaceVideoTrack(cameraTrackRef.current);
       setIsScreenSharing(false);
       toast.info("Screen sharing ended");
-    } else {
-      try {
-        if (navigator.mediaDevices?.getDisplayMedia) {
-          const displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-          setIsScreenSharing(true);
-          toast.success("Sharing your screen");
-          displayStream.getVideoTracks()[0].onended = () => {
-            setIsScreenSharing(false);
-          };
-        } else {
-          setIsScreenSharing(true);
-          toast.success("Sharing your screen (simulated)");
-        }
-      } catch {
-        // user cancelled picker
+      return;
+    }
+    try {
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        toast.error("Screen sharing isn't supported in this browser.");
+        return;
       }
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const track = displayStream.getVideoTracks()[0];
+      if (!track) return;
+      await session.replaceVideoTrack(track);
+      setIsScreenSharing(true);
+      toast.success("Sharing your screen");
+      track.onended = () => {
+        void session.replaceVideoTrack(cameraTrackRef.current);
+        setIsScreenSharing(false);
+      };
+    } catch {
+      // user cancelled the picker
     }
   }
 
