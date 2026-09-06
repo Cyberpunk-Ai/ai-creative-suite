@@ -28,9 +28,22 @@ interface CallModalProps {
   type: "audio" | "video";
   isOpen: boolean;
   onClose: () => void;
+  /** Id of the call row; when present the call is a real connected call. */
+  callId?: string | null;
+  role?: "caller" | "callee";
+  /** "ringing" until the other person picks up, then "active". */
+  callStatus?: "ringing" | "active";
 }
 
-export function CallModal({ partner, type, isOpen, onClose }: CallModalProps) {
+export function CallModal({
+  partner,
+  type,
+  isOpen,
+  onClose,
+  callId = null,
+  role = "caller",
+  callStatus = "active",
+}: CallModalProps) {
   const [muted, setMuted] = useState(false);
   const [videoOff, setVideoOff] = useState(type === "audio");
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
@@ -43,81 +56,61 @@ export function CallModal({ partner, type, isOpen, onClose }: CallModalProps) {
   const [noiseSuppression, setNoiseSuppression] = useState(true);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement>(null);
+  const cameraTrackRef = useRef<MediaStreamTrack | null>(null);
 
-  // Timer
+  const session = useCallSession({
+    callId,
+    role,
+    kind: type,
+    enabled: isOpen && Boolean(callId) && callStatus === "active",
+  });
+
+  const connected = session.connection === "connected";
+
+  // Timer starts once the two sides are actually connected.
   useEffect(() => {
-    if (!isOpen) {
-      setSeconds(0);
-      return;
+    if (!isOpen || !connected) {
+      if (!isOpen) setSeconds(0);
+      return undefined;
     }
     const timer = setInterval(() => setSeconds((s) => s + 1), 1000);
     return () => clearInterval(timer);
-  }, [isOpen]);
+  }, [isOpen, connected]);
 
-  // Handle local camera stream if video call or toggled video
+  // Attach media streams to the elements.
   useEffect(() => {
-    if (!isOpen) {
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
-        mediaStreamRef.current = null;
-      }
-      return;
-    }
+    if (localVideoRef.current) localVideoRef.current.srcObject = session.localStream;
+    cameraTrackRef.current = session.localStream?.getVideoTracks()[0] ?? null;
+  }, [session.localStream]);
 
-    if (!videoOff && typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
-      navigator.mediaDevices
-        .getUserMedia({ video: true, audio: true })
-        .then((stream) => {
-          mediaStreamRef.current = stream;
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = stream;
-          }
-        })
-        .catch((err) => {
-          console.warn("Camera/Mic permission fallback:", err);
-          // Graceful fallback to simulated connection
-        });
-    } else {
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getVideoTracks().forEach((t) => t.stop());
-      }
-    }
-
-    return () => {
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
-        mediaStreamRef.current = null;
-      }
-    };
-  }, [isOpen, videoOff]);
-
-  // Sync mute state with actual audio tracks
   useEffect(() => {
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getAudioTracks().forEach((track) => {
-        track.enabled = !muted;
-      });
-    }
-  }, [muted]);
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = session.remoteStream;
+    if (remoteAudioRef.current) remoteAudioRef.current.srcObject = session.remoteStream;
+  }, [session.remoteStream]);
 
-  // Sync video off state with actual video tracks
   useEffect(() => {
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getVideoTracks().forEach((track) => {
-        track.enabled = !videoOff;
-      });
-    }
-  }, [videoOff]);
+    if (session.mediaError) toast.error(session.mediaError);
+  }, [session.mediaError]);
+
+  useEffect(() => {
+    session.setMicEnabled(!muted);
+  }, [muted, session]);
+
+  useEffect(() => {
+    session.setCameraEnabled(!videoOff);
+  }, [videoOff, session]);
+
+  useEffect(() => {
+    if (remoteAudioRef.current) remoteAudioRef.current.muted = !isSpeakerOn;
+  }, [isSpeakerOn]);
 
   const handleEndCall = () => {
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
-      mediaStreamRef.current = null;
-    }
-    toast.info("Call ended");
+    session.hangUp();
     onClose();
   };
+
 
   if (!isOpen || !partner) return null;
 
