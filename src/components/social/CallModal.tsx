@@ -19,6 +19,7 @@ import {
   Wifi,
 } from "lucide-react";
 import { Avatar } from "@/components/social/Avatar";
+import { useCallSession } from "@/hooks/useCallSession";
 import { type Profile } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
