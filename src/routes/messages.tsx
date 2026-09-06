@@ -231,7 +231,71 @@ function MessagesPage() {
   const [draft, setDraft] = useState("");
   const [query, setQuery] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [activeCall, setActiveCall] = useState<{ user: Profile; type: "audio" | "video" } | null>(null);
+  const [activeCall, setActiveCall] = useState<{
+    user: Profile;
+    type: "audio" | "video";
+    callId: string | null;
+    role: "caller" | "callee";
+    status: "ringing" | "active";
+  } | null>(null);
+
+  // Start a real call: create the call record, then connect once answered.
+  async function beginCall(user: Profile, type: "audio" | "video") {
+    try {
+      const { createCall, endCall, subscribeCallStatus } = await import("@/lib/calls");
+      const row = await createCall(user.id, type);
+      if (!row) return;
+      setActiveCall({ user, type, callId: row.id, role: "caller", status: "ringing" });
+      const stop = subscribeCallStatus(row.id, (call) => {
+        if (call.status === "active") {
+          setActiveCall((c) => (c ? { ...c, status: "active" } : c));
+        } else if (call.status === "declined" || call.status === "ended") {
+          toast.info(call.status === "declined" ? "Call declined" : "Call ended");
+          setActiveCall(null);
+          stop();
+        }
+      });
+      // Stop ringing after 45 seconds with no answer.
+      setTimeout(() => {
+        setActiveCall((c) => {
+          if (c?.callId === row.id && c.status === "ringing") {
+            void endCall(row.id, 0);
+            toast.info("No answer");
+            return null;
+          }
+          return c;
+        });
+      }, 45_000);
+    } catch {
+      toast.error("Couldn't start the call.");
+    }
+  }
+
+  // Ring when someone calls this user.
+  useEffect(() => {
+    let stop = () => {};
+    let cancelled = false;
+    void (async () => {
+      const { subscribeIncomingCalls, answerCall } = await import("@/lib/calls");
+      if (cancelled) return;
+      stop = subscribeIncomingCalls(async (call) => {
+        const caller = users.find((u) => u.id === call.caller_id);
+        if (!caller) return;
+        await answerCall(call.id);
+        setActiveCall({
+          user: caller,
+          type: call.kind,
+          callId: call.id,
+          role: "callee",
+          status: "active",
+        });
+      });
+    })();
+    return () => {
+      cancelled = true;
+      stop();
+    };
+  }, [users]);
   const [showInfo, setShowInfo] = useState(false);
   const [showTipModal, setShowTipModal] = useState(false);
   const [showNewMsgModal, setShowNewMsgModal] = useState(false);
