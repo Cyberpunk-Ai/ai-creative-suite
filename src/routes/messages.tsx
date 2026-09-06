@@ -880,14 +880,14 @@ function MessagesPage() {
                   </button>
 
                   <button
-                    onClick={() => setActiveCall({ user: partner, type: "audio" })}
+                    onClick={() => void beginCall(partner, "audio")}
                     aria-label="Start Voice Call"
                     className="rounded-full p-2 transition-all duration-300 hover:bg-foreground/5 hover:text-foreground min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer"
                   >
                     <Phone className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={() => setActiveCall({ user: partner, type: "video" })}
+                    onClick={() => void beginCall(partner, "video")}
                     aria-label="Start Video Call"
                     className="rounded-full p-2 transition-all duration-300 hover:bg-foreground/5 hover:text-foreground min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer"
                   >
