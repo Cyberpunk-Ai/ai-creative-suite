@@ -279,7 +279,8 @@ function MessagesPage() {
       const { subscribeIncomingCalls, answerCall } = await import("@/lib/calls");
       if (cancelled) return;
       stop = subscribeIncomingCalls(async (call) => {
-        const caller = users.find((u) => u.id === call.caller_id);
+        const res = await getUsers().catch(() => null);
+        const caller = (res?.profiles || []).find((u) => u.id === call.caller_id);
         if (!caller) return;
         await answerCall(call.id);
         setActiveCall({
@@ -295,7 +296,7 @@ function MessagesPage() {
       cancelled = true;
       stop();
     };
-  }, [users]);
+  }, []);
   const [showInfo, setShowInfo] = useState(false);
   const [showTipModal, setShowTipModal] = useState(false);
   const [showNewMsgModal, setShowNewMsgModal] = useState(false);
