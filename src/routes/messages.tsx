@@ -1280,7 +1280,15 @@ function MessagesPage() {
           partner={activeCall.user}
           type={activeCall.type}
           isOpen={Boolean(activeCall)}
-          onClose={() => setActiveCall(null)}
+          callId={activeCall.callId}
+          role={activeCall.role}
+          callStatus={activeCall.status}
+          onClose={() => {
+            if (activeCall.callId) {
+              void import("@/lib/calls").then((m) => m.endCall(activeCall.callId!, 0));
+            }
+            setActiveCall(null);
+          }}
         />
       )}
 
