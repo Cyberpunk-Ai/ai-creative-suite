@@ -175,18 +175,37 @@ export function CallModal({
           ))}
         </div>
 
+        {/* Remote audio always plays, even on an audio-only call */}
+        <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+
         {/* Top Header */}
         <div className="flex items-center justify-between z-20">
           <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-400 border border-emerald-500/30">
+            <span
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold border",
+                connected
+                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                  : session.connection === "failed"
+                    ? "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                    : "bg-amber-500/20 text-amber-300 border-amber-500/30",
+              )}
+            >
               <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+                {connected && (
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+                )}
+                <span
+                  className={cn(
+                    "relative inline-flex h-2 w-2 rounded-full",
+                    connected ? "bg-emerald-400" : session.connection === "failed" ? "bg-rose-400" : "bg-amber-400",
+                  )}
+                />
               </span>
-              {!videoOff ? "1080p Ultra HD" : "Crystal Opus 48kHz"}
+              {statusLabel}
             </span>
             <span className="flex items-center gap-1 text-[11px] text-white/60 bg-white/10 px-2 py-0.5 rounded-full">
-              <Wifi className="h-3 w-3 text-emerald-400" /> 18ms
+              <Wifi className="h-3 w-3 text-emerald-400" /> {type === "video" ? "Video" : "Audio"}
             </span>
           </div>
           <span className="font-mono text-xs font-semibold text-white/80 bg-white/10 px-2.5 py-1 rounded-full">{formattedTime}</span>
@@ -194,42 +213,42 @@ export function CallModal({
 
         {/* Center Calling Area */}
         <div className="my-auto relative flex flex-col items-center justify-center text-center w-full z-10">
-          {/* Main Partner View */}
-          <div className="relative flex flex-col items-center">
-            {/* Pulsing Audio Waveform Equalizer simulation */}
-            <div className="relative flex items-center justify-center">
-              <div className="absolute -inset-4 rounded-full bg-gradient-to-r from-brand/30 via-brand-pink/30 to-brand-orange/30 blur-xl animate-pulse" />
-              <div className="relative rounded-full p-2 ring-4 ring-brand/40 shadow-glow">
-                <Avatar
-                  name={partner.display_name}
-                  src={partner.avatar_url}
-                  className="h-28 w-28 text-3xl ring-4 ring-white/20 shadow-2xl"
-                />
-              </div>
-              <span className="absolute -bottom-1 -right-1 rounded-full bg-emerald-500 p-2 text-white shadow-md ring-2 ring-slate-950">
-                <Volume2 className="h-4 w-4 animate-pulse" />
+          {/* Remote video when the other person has their camera on */}
+          {type === "video" && hasRemoteVideo ? (
+            <div className="relative w-full overflow-hidden rounded-2xl border border-white/10 bg-black">
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className="h-64 w-full object-cover"
+              />
+              <span className="absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white/90">
+                {partner.display_name}
               </span>
             </div>
-
-            <h3 className="mt-5 text-xl font-extrabold tracking-tight">{partner.display_name}</h3>
-            <p className="text-xs text-white/60 mt-1">@{partner.username} · Connected</p>
-
-            {/* Live Audio Equalizer Waveform bars */}
-            {!muted && (
-              <div className="mt-4 flex items-center gap-1 h-6">
-                {[40, 75, 100, 60, 90, 45, 80, 55, 95, 65, 30].map((h, i) => (
-                  <span
-                    key={i}
-                    style={{
-                      height: `${Math.max(6, (h * (seconds % 3 + 1)) / 3)}px`,
-                      animationDelay: `${i * 90}ms`,
-                    }}
-                    className="w-1 rounded-full bg-gradient-to-t from-brand to-brand-pink transition-all duration-150"
+          ) : (
+            <div className="relative flex flex-col items-center">
+              <div className="relative flex items-center justify-center">
+                <div className="absolute -inset-4 rounded-full bg-gradient-to-r from-brand/30 via-brand-pink/30 to-brand-orange/30 blur-xl animate-pulse" />
+                <div className="relative rounded-full p-2 ring-4 ring-brand/40 shadow-glow">
+                  <Avatar
+                    name={partner.display_name}
+                    src={partner.avatar_url}
+                    className="h-28 w-28 text-3xl ring-4 ring-white/20 shadow-2xl"
                   />
-                ))}
+                </div>
+                <span className="absolute -bottom-1 -right-1 rounded-full bg-emerald-500 p-2 text-white shadow-md ring-2 ring-slate-950">
+                  <Volume2 className="h-4 w-4 animate-pulse" />
+                </span>
               </div>
-            )}
-          </div>
+
+              <h3 className="mt-5 text-xl font-extrabold tracking-tight">{partner.display_name}</h3>
+              <p className="text-xs text-white/60 mt-1">
+                @{partner.username} · {statusLabel}
+              </p>
+            </div>
+          )}
+
 
           {/* Self Camera Inset (if video active) */}
           {!videoOff && (
